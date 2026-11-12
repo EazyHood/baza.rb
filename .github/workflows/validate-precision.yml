@@ -1,0 +1,30 @@
+name: Validate fake payment precision
+on:
+  push:
+    branches: [verify-fake-precision-20261112]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: '479'
+          fetch-depth: 0
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Reproduce the fake-client mismatch on the base
+        run: |
+          git show 6bc3ba24a5a3007f3ffde648a2eab88599e9f622:lib/baza-rb/fake.rb > lib/baza-rb/fake.rb
+          if bundle exec ruby -Itest -e 'ARGV << "--no-cov"; require "./test/test_fake"; ARGV.delete("--no-cov"); ARGV.push("--name", "/payment/")'; then
+            echo 'Expected the base to reject at least one new regression'
+            exit 1
+          fi
+          git restore lib/baza-rb/fake.rb
+      - name: Check the patched fake-client behavior
+        run: bundle exec ruby -Itest -e 'ARGV << "--no-cov"; require "./test/test_fake"; ARGV.delete("--no-cov"); ARGV.push("--name", "/payment/")'
+      - run: bundle exec rake
